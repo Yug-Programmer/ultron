@@ -1,0 +1,82 @@
+# Ultron Master Configuration
+
+assistant:
+  name: "Ultron"
+  wake_word: "ultron"
+  system_prompt: |
+    You are Ultron, an advanced, highly intelligent, and direct AI assistant inspired by Jarvis.
+    You speak naturally, concisely, and with confidence.
+    You have direct control over the user's operating system, hardware, screen, and tasks.
+    When asked to do something, execute it decisively and report results cleanly.
+    Always be proactive, polite yet authoritative, and precise.
+
+audio:
+  # STT: Options include 'tiny.en', 'base.en', 'small.en' (default: 'base.en' for high speed and accuracy)
+  stt_model: "base.en"
+  stt_device: "auto"       # 'cuda' or 'cpu'
+  sample_rate: 16000
+  silence_duration: 0.35   # 350ms natural pause triggers recognition
+  energy_threshold: 0.012  # Responsive speech capture for normal conversational speaking levels
+  
+  # TTS: Neural Speech Voice
+  # Popular Options:
+  #   - 'en-GB-RyanNeural'         (Jarvis / British Butler)
+  #   - 'en-US-BrianNeural'        (Deep Cinematic Ultron)
+  #   - 'en-US-ChristopherNeural'  (Commanding Assistant - Default)
+  #   - 'en-US-JennyNeural'        (Siri / Friday Female)
+  #   - 'en-IN-PrabhatNeural'      (Indian English Male)
+  tts_voice: "en-US-BrianNeural"
+  tts_rate: "-3%"
+  tts_pitch: "-8Hz"  # Deep, resonant cinematic Ultron timbre
+
+  # Dynamic Mic Auto-Yielding
+  # When any of these apps actively run or capture audio, Ultron auto-yields microphone
+  auto_yield_apps:
+    - "discord.exe"
+    - "zoom.exe"
+    - "teams.exe"
+    - "skype.exe"
+    - "obs64.exe"
+    - "whatsapp.exe"
+    - "audacity.exe"
+
+screen:
+  monitor_enabled: true
+  snapshot_interval_seconds: 3.0
+  proactive_help_enabled: true
+  stagnation_seconds: 25.0
+
+ui:
+  glow_width: 8
+  glow_color_listening: "#00E5FF"     # Cyan neon
+  glow_color_thinking: "#7C4DFF"      # Electric Purple
+  glow_color_proactive: "#FFAB00"     # Warm Amber
+  glow_color_executing: "#00E676"     # Emerald Green
+
+models:
+  # Tier 1 Cloud Providers (Free tiers - no credit card required)
+  groq:
+    enabled: true
+    model: "qwen/qwen3.8-27b"
+    api_key: "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"
+
+  openrouter:
+    enabled: true
+    model: "meta-llama/llama-3.3-70b-instruct:free"
+    api_key: ""  # Paste free key here or set OPENROUTER_API_KEY environment variable
+
+  gemini:
+    enabled: false
+    model: "gemini-2.5-flash"
+    api_key: ""
+
+  # Tier 2 Local Offline Fallback (100% Free, Private, Runs on your PC via Ollama)
+  ollama:
+    enabled: true
+    base_url: "http://localhost:11434"
+    model: "qwen2.5:7b"
+
+mobile:
+  server_host: "0.0.0.0"
+  server_port: 8765
+  auth_token: "ultron_secure_sync"
