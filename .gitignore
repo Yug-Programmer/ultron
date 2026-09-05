@@ -19,3 +19,9 @@ audio_cache/*.wav
 # Environment secrets
 .env
 scratch/
+
+# .NET Build artifacts
+bin/
+obj/
+*.user
+*.suo

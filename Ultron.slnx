@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="Ultron.Shared/Ultron.Shared.csproj" />
+  <Project Path="Ultron.Net/Ultron.Net.csproj" />
+  <Project Path="Ultron.Android/Ultron.Android.csproj" />
+</Solution>
