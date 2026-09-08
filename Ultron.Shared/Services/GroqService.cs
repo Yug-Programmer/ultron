@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Ultron.Shared.Config;
+using Ultron.Shared.Memory;
 
 namespace Ultron.Shared.Services
 {
@@ -41,7 +42,10 @@ Supported actions:
 8. {""action"": ""open_folder"", ""folder"": ""<folder_name>""}
 9. {""action"": ""modify_file"", ""file"": ""<filename>"", ""instruction"": ""<instruction>""}
 10. {""action"": ""delete_file"", ""file"": ""<filename>""}
-11. {""action"": ""chat"", ""query"": ""<user_query>""} - for questions, general talk, news, etc.
+11. {""action"": ""recall_activity""} - when user asks what they were doing, what they worked on, or recent screen history
+12. {""action"": ""remember_fact"", ""text"": ""<fact>""} - when user tells to remember or memorize information
+13. {""action"": ""who_am_i""} - when user asks what is known about them or their profile
+14. {""action"": ""chat"", ""query"": ""<user_query>""} - for questions, general talk, news, etc.
 
 Return ONLY a valid JSON object. Do not include markdown codeblocks or explanation.";
 
@@ -150,13 +154,18 @@ Return ONLY a valid JSON object. Do not include markdown codeblocks or explanati
         {
             try
             {
+                if (string.IsNullOrEmpty(systemContext))
+                {
+                    systemContext = await MemoryService.Instance.GetPersonalizedContextSummaryAsync();
+                }
+
                 using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.groq.com/openai/v1/chat/completions");
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _config.GroqApiKey);
 
                 string sysPrompt = "You are Ultron, an advanced, highly intelligent, and direct AI assistant. Speak concisely, authoritatively, and with confidence without conversational filler.";
                 if (!string.IsNullOrEmpty(systemContext))
                 {
-                    sysPrompt += $"\n\nContext:\n{systemContext}";
+                    sysPrompt += $"\n\nPersonalized Context & Memory:\n{systemContext}";
                 }
 
                 var payload = new

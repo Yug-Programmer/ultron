@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Ultron.Net.Audio;
 using Ultron.Shared.Config;
+using Ultron.Shared.Memory;
 using Ultron.Shared.Services;
 using Ultron.Net.Tools;
 
@@ -15,9 +16,14 @@ namespace Ultron.Net.Services
         private readonly NluEngine _nlu;
         private readonly TtsService _tts;
         private readonly WasapiListener _listener;
+        private readonly ScreenWatcher _screenWatcher;
+        private readonly MemoryService _memory;
 
         private bool _isSessionActive = false;
         private DateTime _sessionExpiry = DateTime.MinValue;
+
+        public ScreenWatcher ScreenWatcher => _screenWatcher;
+        public MemoryService Memory => _memory;
 
         public event Action<string, string>? OnSubtitlesChanged;
         public event Action<string>? OnStateChanged;
@@ -25,10 +31,17 @@ namespace Ultron.Net.Services
         public Orchestrator(UltronConfig config)
         {
             _config = config;
+            _memory = MemoryService.Instance;
+            _screenWatcher = new ScreenWatcher(_memory);
             _groq = new GroqService(config);
             _nlu = new NluEngine(config);
             _tts = new TtsService(config);
             _listener = new WasapiListener(config, _tts);
+
+            _screenWatcher.OnWindowChanged += (proc, title) =>
+            {
+                _nlu.Context.LastActiveApp = proc;
+            };
 
             _listener.OnSpeechCaptured += (wavBytes) =>
             {
@@ -38,6 +51,7 @@ namespace Ultron.Net.Services
 
         public void Start()
         {
+            _screenWatcher.Start();
             _listener.Start();
             OnStateChanged?.Invoke("LISTENING");
             _tts.Speak("Ultron systems online and operational, sir.");
@@ -45,6 +59,7 @@ namespace Ultron.Net.Services
 
         public void Stop()
         {
+            _screenWatcher.Stop();
             _listener.Stop();
             _tts.Stop();
         }
@@ -157,10 +172,26 @@ namespace Ultron.Net.Services
 
                 case "modify_file":
                     result = WindowsAutomator.FindAndModifyFile(action.File ?? "notes.txt", action.Instruction ?? command);
+                    _ = Task.Run(async () => await _memory.LogFileActivityAsync(action.File ?? "notes.txt", "modify"));
                     break;
 
                 case "delete_file":
                     result = WindowsAutomator.DeleteFileOnDisk(action.File ?? "");
+                    _ = Task.Run(async () => await _memory.LogFileActivityAsync(action.File ?? "", "delete"));
+                    break;
+
+                case "recall_activity":
+                    result = await _memory.FormatTimelineSummaryAsync(hours: 12);
+                    break;
+
+                case "remember_fact":
+                    var factReply = await _nlu.Personalization.TryHandleExplicitMemoryCommandAsync("remember that " + (action.Text ?? command));
+                    result = factReply ?? "Fact committed to permanent memory, sir.";
+                    break;
+
+                case "who_am_i":
+                    var whoReply = await _nlu.Personalization.TryHandleExplicitMemoryCommandAsync("who am i");
+                    result = whoReply ?? "I am Ultron, your personalized AI assistant.";
                     break;
 
                 case "chat":
@@ -173,6 +204,7 @@ namespace Ultron.Net.Services
             {
                 OnSubtitlesChanged?.Invoke(clean, result);
                 _tts.Speak(result);
+                _ = Task.Run(async () => await _memory.LogInteractionAsync(clean, action.Action ?? "chat", result, _nlu.Context.LastActiveApp));
             }
 
             ExtendSession();
@@ -187,6 +219,7 @@ namespace Ultron.Net.Services
 
         public void Dispose()
         {
+            _screenWatcher?.Dispose();
             _listener?.Dispose();
             _tts?.Dispose();
         }

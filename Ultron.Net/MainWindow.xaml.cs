@@ -52,6 +52,14 @@ namespace Ultron.Net
                 });
             };
 
+            _orchestrator.ScreenWatcher.OnWindowChanged += (proc, title) =>
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    ActiveWindowText.Text = $"Active [{proc}]: {title}";
+                });
+            };
+
             Loaded += (s, e) =>
             {
                 _orchestrator.Start();
@@ -73,6 +81,14 @@ namespace Ultron.Net
             string vitals = WindowsAutomator.GetSystemVitals();
             UserSpeechText.Text = "User: [Manual Check]";
             UltronReplyText.Text = $"Ultron: \"{vitals}\"";
+        }
+
+        private async void RecallTimeline_Click(object sender, RoutedEventArgs e)
+        {
+            UserSpeechText.Text = "User: [Timeline Query]";
+            UltronReplyText.Text = "Ultron: Querying 24/7 episodic memory timeline...";
+            string summary = await _orchestrator.Memory.FormatTimelineSummaryAsync(hours: 12);
+            UltronReplyText.Text = $"Ultron: \"{summary}\"";
         }
 
         private void ToggleMic_Click(object sender, RoutedEventArgs e)

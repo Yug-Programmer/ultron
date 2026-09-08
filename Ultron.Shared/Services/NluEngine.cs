@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Ultron.Shared.Config;
+using Ultron.Shared.Memory;
 
 namespace Ultron.Shared.Services
 {
@@ -53,6 +54,7 @@ namespace Ultron.Shared.Services
         private readonly HttpClient _httpClient;
         private readonly UltronConfig _config;
         private readonly DialogueContext _context = new();
+        private readonly PersonalizationEngine _personalization = new();
 
         private const string LocalNlpUrl = "http://127.0.0.1:8766/nlp/analyze";
 
@@ -81,12 +83,19 @@ Supported actions:
 10. {""action"": ""delete_file"", ""file"": ""<filename>"", ""language"": ""<lang>"", ""reply_language"": ""<lang>""}
 11. {""action"": ""vitals"", ""language"": ""<lang>"", ""reply_language"": ""<lang>""}
    - When user asks about battery, CPU, RAM, or storage (e.g., 'what is my battery', 'battery kitni hai')
-12. {""action"": ""chat"", ""query"": ""<user_query>"", ""language"": ""<lang>"", ""reply_language"": ""<lang>""}
+12. {""action"": ""recall_activity"", ""language"": ""<lang>"", ""reply_language"": ""<lang>""}
+   - When user asks what they were doing, what they worked on, screen history (e.g., 'what was I doing 10 minutes ago', 'summarize my activity')
+13. {""action"": ""remember_fact"", ""text"": ""<fact>"", ""language"": ""<lang>"", ""reply_language"": ""<lang>""}
+   - When user asks to memorize a fact or preference (e.g., 'remember that my favorite tool is vs code', 'yaad rakhna ki...')
+14. {""action"": ""who_am_i"", ""language"": ""<lang>"", ""reply_language"": ""<lang>""}
+   - When user asks what is known about them or their profile (e.g., 'who am i', 'what do you know about me')
+15. {""action"": ""chat"", ""query"": ""<user_query>"", ""language"": ""<lang>"", ""reply_language"": ""<lang>""}
    - For questions, explanations, talk, news, weather, or greeting.
 
 Output must be raw valid JSON only. No markdown formatting, backticks, or explanation.";
 
         public DialogueContext Context => _context;
+        public PersonalizationEngine Personalization => _personalization;
 
         public NluEngine(UltronConfig config)
         {
@@ -98,6 +107,31 @@ Output must be raw valid JSON only. No markdown formatting, backticks, or explan
         {
             if (string.IsNullOrWhiteSpace(userSpeech))
                 return new NluResult { Action = "chat", Query = "" };
+
+            // 0. Instant memory intent evaluation (<1ms)
+            string lower = userSpeech.ToLower().Trim();
+            if (lower.StartsWith("remember that ") || lower.StartsWith("remember ") || lower.StartsWith("yaad rakhna ki ") || lower.StartsWith("yaad rakho ki "))
+            {
+                var match = Regex.Match(userSpeech, @"(?:remember\s+that|remember|yaad\s+rakhna\s+ki|yaad\s+rakho\s+ki)\s+(.*)", RegexOptions.IgnoreCase);
+                if (match.Success)
+                {
+                    var res = new NluResult { Action = "remember_fact", Text = match.Groups[1].Value.Trim() };
+                    _context.Update(res, userSpeech);
+                    return res;
+                }
+            }
+            if (lower.Contains("what do you know about me") || lower.Contains("who am i") || lower.Contains("mere baare me kya jante ho"))
+            {
+                var res = new NluResult { Action = "who_am_i" };
+                _context.Update(res, userSpeech);
+                return res;
+            }
+            if (lower.Contains("what was i doing") || lower.Contains("what was i working on") || lower.Contains("summarize my day") || lower.Contains("screen activity") || lower.Contains("kya kar raha tha"))
+            {
+                var res = new NluResult { Action = "recall_activity" };
+                _context.Update(res, userSpeech);
+                return res;
+            }
 
             // 1. Check Local Python NLP Service first (<20ms response if running)
             var localResult = await TryLocalPythonNlpAsync(userSpeech);
@@ -143,7 +177,8 @@ Output must be raw valid JSON only. No markdown formatting, backticks, or explan
                 using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.groq.com/openai/v1/chat/completions");
                 request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _config.GroqApiKey);
 
-                string contextPrompt = $"Context: LastActiveApp='{_context.LastActiveApp ?? "none"}', LastActiveFile='{_context.LastActiveFile ?? "none"}', LastTyped='{_context.LastTypedText ?? "none"}'.";
+                string memSummary = await MemoryService.Instance.GetPersonalizedContextSummaryAsync();
+                string contextPrompt = $"Context: LastActiveApp='{_context.LastActiveApp ?? "none"}', LastActiveFile='{_context.LastActiveFile ?? "none"}', LastTyped='{_context.LastTypedText ?? "none"}'.\n{memSummary}";
 
                 var payload = new
                 {
