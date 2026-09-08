@@ -26,6 +26,7 @@ namespace Ultron.Android.Services
 
         private UltronConfig _config = new();
         private GroqService? _groq;
+        private NluEngine? _nlu;
         private AndroidTts? _tts;
 
         private bool _isSpeaking = false;
@@ -39,6 +40,7 @@ namespace Ultron.Android.Services
             base.OnCreate();
             _config = UltronConfig.Load();
             _groq = new GroqService(_config);
+            _nlu = new NluEngine(_config);
             _tts = new AndroidTts(this);
 
             CreateNotificationChannel();
@@ -166,13 +168,18 @@ namespace Ultron.Android.Services
                 return;
             }
 
-            var action = await _groq.ClassifyActionAsync(command);
+            if (_nlu == null) return;
+            var action = await _nlu.UnderstandAsync(command);
             string reply = "";
 
             switch (action.Action?.ToLower())
             {
                 case "open_app":
                     reply = LaunchAndroidApp(action.App ?? command);
+                    break;
+
+                case "vitals":
+                    reply = GetBatteryStatus();
                     break;
 
                 case "chat":

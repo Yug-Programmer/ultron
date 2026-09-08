@@ -18,6 +18,7 @@ audio_cache/*.wav
 
 # Environment secrets
 .env
+config.json
 scratch/
 
 # .NET Build artifacts

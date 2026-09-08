@@ -66,8 +66,8 @@ Return ONLY a valid JSON object. Do not include markdown codeblocks or explanati
                 audioContent.Headers.ContentType = MediaTypeHeaderValue.Parse("audio/wav");
                 content.Add(audioContent, "file", "audio.wav");
                 content.Add(new StringContent(_config.SttModel), "model");
-                content.Add(new StringContent("en"), "language");
-                content.Add(new StringContent("Ultron, Jarvis, New Volume Y, Local Disk C, Program Files, Notepad, Microsoft Word, Excel, Task Manager, folder, file, WhatsApp, YouTube."), "prompt");
+                // Omit language parameter to let Whisper automatically detect English, Hindi, Hinglish, etc.
+                content.Add(new StringContent("Ultron, Jarvis, New Volume Y, Local Disk C, Program Files, Notepad, Word, Excel, Task Manager, file, WhatsApp, YouTube, kholo, likho, save karo, delete karo, change karo."), "prompt");
                 content.Add(new StringContent("0.0"), "temperature");
                 content.Add(new StringContent("json"), "response_format");
 

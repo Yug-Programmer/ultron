@@ -12,6 +12,7 @@ namespace Ultron.Net.Services
     {
         private readonly UltronConfig _config;
         private readonly GroqService _groq;
+        private readonly NluEngine _nlu;
         private readonly TtsService _tts;
         private readonly WasapiListener _listener;
 
@@ -25,6 +26,7 @@ namespace Ultron.Net.Services
         {
             _config = config;
             _groq = new GroqService(config);
+            _nlu = new NluEngine(config);
             _tts = new TtsService(config);
             _listener = new WasapiListener(config, _tts);
 
@@ -105,12 +107,15 @@ namespace Ultron.Net.Services
                 return;
             }
 
-            // Neural Action Classification (Groq LPU LLM)
-            var action = await _groq.ClassifyActionAsync(command);
+            // Deep Multilingual Neural NLU & Contextual Engine
+            var action = await _nlu.UnderstandAsync(command);
             string result = "";
 
             switch (action.Action?.ToLower())
             {
+                case "vitals":
+                    result = WindowsAutomator.GetSystemVitals();
+                    break;
                 case "type":
                     result = WindowsAutomator.TypeInActiveEditor(action.Text ?? command);
                     break;
